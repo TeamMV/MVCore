@@ -4,13 +4,6 @@ use std::sync::{Arc, RwLock};
 use mvutils::lazy;
 use mvutils::once::Lazy;
 use mvutils::utils::{Recover, RwUnchecked};
-
-use crate::render::color::{Color, Gradient, RGB};
-use crate::render::common::{Texture, TextureRegion};
-#[cfg(feature = "3d")]
-use crate::render::common3d::{Material, Model};
-use crate::render::text::Font;
-
 lazy! {
     static GLOBAL_RESOURCES: RwLock<GlobalResources> = GlobalResources::default().into();
 }

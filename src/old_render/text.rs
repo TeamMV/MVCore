@@ -6,8 +6,8 @@ use std::time::Instant;
 
 use mvutils::utils::TetrahedronOp;
 
-use crate::render::common::Texture;
-use crate::render::init::State;
+use crate::old_render::common::Texture;
+use crate::old_render::init::State;
 
 pub struct TypeFace {
     pub regular: Arc<Font>,

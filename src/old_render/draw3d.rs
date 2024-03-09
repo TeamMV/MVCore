@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use crate::render::batch2d::{Vertex2D, VertexGroup};
-use crate::render::color::{Gradient, RGB};
-use crate::render::text::Font;
+use crate::old_render::batch2d::{Vertex2D, VertexGroup};
+use crate::old_render::color::{Gradient, RGB};
+use crate::old_render::text::Font;
 
 pub struct Draw3D {
     canvas: [f32; 6],

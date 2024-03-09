@@ -10,13 +10,13 @@ use wgpu::{
     RenderPass, TextureView,
 };
 
-use crate::render::common::{Bytes, Shader, Texture};
-use crate::render::common3d::{InstancedMaterial, Material, DUMMY_MATERIAL};
-use crate::render::consts::{
+use crate::old_render::common::{Bytes, Shader, Texture};
+use crate::old_render::common3d::{InstancedMaterial, Material, DUMMY_MATERIAL};
+use crate::old_render::consts::{
     DEFAULT_SAMPLER, DUMMY_TEXTURE, MATERIAL_LIMIT, MAX_MATERIALS, MAX_TEXTURES, TEXTURE_LIMIT,
 };
-use crate::render::init::State;
-use crate::render::render2d::TextureBindGroup;
+use crate::old_render::init::State;
+use crate::old_render::render2d::TextureBindGroup;
 
 pub(crate) trait RenderPass3D {
     fn new_frame(&mut self, render_pass: &mut RenderPass, projection: Mat4, view_matrix: Mat4);

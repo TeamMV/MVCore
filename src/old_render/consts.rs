@@ -10,7 +10,7 @@ use wgpu::{
     TextureViewDimension, VertexBufferLayout, VertexFormat, VertexStepMode,
 };
 
-use crate::render::common::Texture;
+use crate::old_render::common::Texture;
 
 pub(crate) const VERT_LIMIT: u64 = 10000;
 pub(crate) const VERT_LIMIT_2D_FLOATS: u64 = VERT_LIMIT * VERTEX_LAYOUT_2D.array_stride / 4;
@@ -202,7 +202,7 @@ pub(crate) const BIND_GROUP_LAYOUT_LIGHTING_3D: BindGroupLayoutDescriptor =
     };
 
 pub(crate) const BIND_GROUP_LAYOUT_3D: BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
-    label: Some("Bind group layout forward render 3D"),
+    label: Some("Bind group layout forward old_render 3D"),
     entries: &[],
 };
 

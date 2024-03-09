@@ -7,9 +7,9 @@ use mvutils::lazy;
 use mvutils::once::Lazy;
 use mvutils::unsafe_utils::DangerousCell;
 
-use crate::render::color::{Color, RGB};
-use crate::render::common::Texture;
-use crate::render::consts::{
+use crate::old_render::color::{Color, RGB};
+use crate::old_render::common::Texture;
+use crate::old_render::consts::{
     MATERIAL_OFFSET, MATRIX_OFFSET, MAX_TEXTURES, VERTEX_LAYOUT_3D, VERT_LIMIT,
 };
 

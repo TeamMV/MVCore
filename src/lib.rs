@@ -15,19 +15,14 @@ use std::sync::Arc;
 use mvsync::{MVSync, MVSyncSpecs};
 use mvutils::version::Version;
 
-use crate::render::RenderCore;
-
 mod err;
 pub mod input;
-mod parsing;
 pub mod render;
-pub mod resources;
 #[cfg(feature = "ui")]
 pub mod ui;
-#[cfg(feature = "vr")]
-pub mod vr;
 
 pub use mvcore_proc_macro::ui_element;
+use crate::render::RenderCore;
 
 pub struct MVCore {
     render: Arc<RenderCore>,
@@ -62,7 +57,6 @@ impl MVCore {
             }
         };
         let core = Arc::new(core);
-        core.render.set_core(core.clone());
         core
     }
 

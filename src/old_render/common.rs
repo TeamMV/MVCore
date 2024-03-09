@@ -14,8 +14,8 @@ use wgpu::{
     TextureViewDescriptor, VertexBufferLayout,
 };
 
-use crate::render::consts::{BIND_GROUPS, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, DUMMY_VERT};
-use crate::render::init::{PipelineBuilder, State};
+use crate::old_render::consts::{BIND_GROUPS, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM, DUMMY_VERT};
+use crate::old_render::init::{PipelineBuilder, State};
 
 pub enum ShaderType {
     Fragment,
@@ -84,7 +84,7 @@ fn compile(src: &str, type_of_shader: ShaderType) -> Vec<u32> {
 }
 
 mod preprocessor {
-    use crate::render::consts::{MAX_LIGHTS, MAX_MATERIALS, MAX_TEXTURES};
+    use crate::old_render::consts::{MAX_LIGHTS, MAX_MATERIALS, MAX_TEXTURES};
 
     const MAX_TEXTURES_IDENTIFIER: &str = "MAX_TEXTURES";
     const MAX_LIGHTS_IDENTIFIER: &str = "MAX_LIGHTS";

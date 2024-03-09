@@ -1,5 +1,5 @@
-use crate::render::color::RgbColor;
-use crate::render::text::Font;
+use crate::old_render::color::RgbColor;
+use crate::old_render::text::Font;
 use crate::resources::resources::R;
 use crate::ui::background::{Background, BackgroundInfo, RectangleBackground};
 use crate::ui::elements::UiElement;

@@ -12,12 +12,12 @@ use wgpu::{
     TextureViewDescriptor,
 };
 
-use crate::render::common::{Bytes, EffectShader, Shader, Texture};
-use crate::render::consts::{
+use crate::old_render::common::{Bytes, EffectShader, Shader, Texture};
+use crate::old_render::consts::{
     BIND_GROUPS, BIND_GROUP_EFFECT, DEFAULT_SAMPLER, DUMMY_TEXTURE, EFFECT_INDICES, MAX_TEXTURES,
     TEXTURE_LIMIT,
 };
-use crate::render::init::State;
+use crate::old_render::init::State;
 
 pub(crate) struct TextureBindGroup {
     pub(crate) bind_group: BindGroup,

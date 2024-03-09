@@ -1,7 +1,7 @@
-use crate::render::color::RgbColor;
-use crate::render::draw2d::DrawContext2D;
-use crate::render::window::Window;
-use crate::render::ApplicationLoopCallbacks;
+use crate::old_render::color::RgbColor;
+use crate::old_render::draw2d::DrawContext2D;
+use crate::old_render::window::Window;
+use crate::old_render::ApplicationLoopCallbacks;
 use crate::resolve;
 use crate::ui::ease::Easing;
 use crate::ui::elements::UiElement;

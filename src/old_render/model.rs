@@ -7,11 +7,11 @@ use gltf::{Gltf, Semantic};
 use itertools::Itertools;
 use mvutils::utils::{Bytecode, TetrahedronOp};
 
-use crate::render::color::{Color, RGB};
-use crate::render::common::Texture;
-use crate::render::common3d::{Material, Mesh, Model, RawMesh};
-use crate::render::window::Window;
-use crate::render::ApplicationLoopCallbacks;
+use crate::old_render::color::{Color, RGB};
+use crate::old_render::common::Texture;
+use crate::old_render::common3d::{Material, Mesh, Model, RawMesh};
+use crate::old_render::window::Window;
+use crate::old_render::ApplicationLoopCallbacks;
 
 pub(crate) struct ModelLoader<I: ApplicationLoopCallbacks + 'static> {
     obj: OBJModelLoader<I>,

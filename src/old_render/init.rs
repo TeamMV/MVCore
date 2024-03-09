@@ -20,8 +20,8 @@ use wgpu::{
 use wgpu::{Instance, InstanceFlags};
 use winit::dpi::PhysicalSize;
 
-use crate::render::common::Texture;
-use crate::render::consts::{
+use crate::old_render::common::Texture;
+use crate::old_render::consts::{
     BIND_GROUPS, BIND_GROUP_2D, BIND_GROUP_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
     BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LAYOUT_2D, BIND_GROUP_LAYOUT_3D, BIND_GROUP_LAYOUT_EFFECT,
     BIND_GROUP_LAYOUT_EFFECT_CUSTOM, BIND_GROUP_LAYOUT_GEOMETRY_3D, BIND_GROUP_LAYOUT_LIGHTING_3D,
@@ -30,10 +30,10 @@ use crate::render::consts::{
     MAX_MATERIALS, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_LAYOUT_2D, VERTEX_LAYOUT_3D,
     VERTEX_LAYOUT_NONE, VERT_LIMIT_2D_BYTES,
 };
-use crate::render::window::WindowSpecs;
+use crate::old_render::window::WindowSpecs;
 
 #[cfg(feature = "3d")]
-use crate::render::common3d::Material;
+use crate::old_render::common3d::Material;
 
 pub(crate) struct State {
     pub(crate) surface: Surface,

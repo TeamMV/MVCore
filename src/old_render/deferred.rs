@@ -9,14 +9,14 @@ use wgpu::{
     RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp, TextureView,
 };
 
-use crate::render::common::{Bytes, Shader, Texture};
-use crate::render::consts::{
+use crate::old_render::common::{Bytes, Shader, Texture};
+use crate::old_render::consts::{
     BIND_GROUP_LIGHTING_3D, DEFAULT_SAMPLER, DUMMY_TEXTURE, DUMMY_VERT, MAX_LIGHTS, MAX_TEXTURES,
     TEXTURE_LIMIT, VERTEX_LAYOUT_NONE,
 };
-use crate::render::init::State;
-use crate::render::render2d::TextureBindGroup;
-use crate::render::render3d::RenderPass3D;
+use crate::old_render::init::State;
+use crate::old_render::render2d::TextureBindGroup;
+use crate::old_render::render3d::RenderPass3D;
 
 pub(crate) struct DeferredPass {
     state: &'static State,

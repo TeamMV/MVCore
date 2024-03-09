@@ -3,11 +3,11 @@ use std::sync::Arc;
 
 use mvutils::utils::{Overlap, Recover};
 
-use crate::render::batch2d::{BatchController2D, Vertex2D, VertexGroup};
-use crate::render::color::{Color, RGB};
-use crate::render::common::TextureRegion;
-use crate::render::render2d::RenderPass2D;
-use crate::render::text::Font;
+use crate::old_render::batch2d::{BatchController2D, Vertex2D, VertexGroup};
+use crate::old_render::color::{Color, RGB};
+use crate::old_render::common::TextureRegion;
+use crate::old_render::render2d::RenderPass2D;
+use crate::old_render::text::Font;
 use crate::resources::resources::R;
 
 use super::color::Gradient;

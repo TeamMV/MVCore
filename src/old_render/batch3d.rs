@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use crate::render::batch2d::{BatchGen, BatchType};
+use crate::old_render::batch2d::{BatchGen, BatchType};
 use glam::Mat4;
 
-use crate::render::common::Texture;
-use crate::render::common3d::{Model, ModelArray};
-use crate::render::consts::{MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_3D_SIZE_FLOATS};
-use crate::render::init::PipelineBuilder;
-use crate::render::render3d::RenderPass3D;
+use crate::old_render::common::Texture;
+use crate::old_render::common3d::{Model, ModelArray};
+use crate::old_render::consts::{MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_3D_SIZE_FLOATS};
+use crate::old_render::init::PipelineBuilder;
+use crate::old_render::render3d::RenderPass3D;
 
 struct RegularBatch;
 

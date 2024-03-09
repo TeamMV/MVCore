@@ -3,14 +3,14 @@ use std::sync::Arc;
 use mvutils::init_arr;
 use mvutils::utils::TetrahedronOp;
 
-use crate::render::color::{Color, RGB};
-use crate::render::common::Texture;
-use crate::render::consts::{
+use crate::old_render::color::{Color, RGB};
+use crate::old_render::common::Texture;
+use crate::old_render::consts::{
     INDEX_LIMIT, MAX_TEXTURES, TEXTURE_LIMIT, VERTEX_2D_SIZE_FLOATS, VERT_LIMIT,
     VERT_LIMIT_2D_FLOATS,
 };
-use crate::render::init::PipelineBuilder;
-use crate::render::render2d::RenderPass2D;
+use crate::old_render::init::PipelineBuilder;
+use crate::old_render::render2d::RenderPass2D;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum BatchType {
