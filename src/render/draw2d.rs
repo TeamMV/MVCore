@@ -2,6 +2,7 @@ use glam::Vec2;
 use std::sync::Arc;
 
 use mvutils::utils::{Overlap, Recover};
+use crate::err::panic;
 
 use crate::render::batch2d::{BatchController2D, Vertex2D, VertexGroup};
 use crate::render::color::{Color, RGB};
@@ -75,6 +76,8 @@ pub struct DrawContext2D {
     chroma_compress: f32,
     frame: u64,
     dpi: f32,
+
+    shape_vert_idx: u8
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -93,7 +96,39 @@ impl DrawContext2D {
             chroma_compress: 1.0,
             frame: 0,
             dpi,
+            shape_vert_idx: 0,
         }
+    }
+
+    pub fn begin_shape(&mut self) {
+        self.shape_vert_idx = 0
+    }
+
+    pub fn vertex(&mut self, x: f32, y: f32, rot: f32, rx: f32, ry: f32) {
+        self.vertex_color(x, y, rot, rx, ry, self.color.get(0));
+    }
+
+    pub fn vertex_color(&mut self, x: f32, y: f32, rot: f32, rx: f32, ry: f32, col: Color<RGB, f32>) {
+        self.vertices.get_mut(self.shape_vert_idx).set_data(
+            x,
+            y,
+            0.0,
+            rot.to_radians(),
+            rx,
+            ry,
+            col,
+            self.trans.data,
+            self.use_cam,
+            false
+        );
+
+        if self.shape_vert_idx >= 2 {
+            self.shape_vert_idx = 0;
+            self.vertices.set_len(3);
+            self.batch.add_vertices(&self.vertices);
+        }
+
+        self.shape_vert_idx += 1;
     }
 
     pub fn rotate(&mut self, r: f32) {
@@ -1344,7 +1379,9 @@ impl DrawContext2D {
         start: i32,
         precision: f32,
     ) {
-        self.ellipse_arc_origin_rotated(x, y, radius_x, radius_y, range, start, precision, 0.0, x, y);
+        self.ellipse_arc_origin_rotated(
+            x, y, radius_x, radius_y, range, start, precision, 0.0, x, y,
+        );
     }
 
     pub fn ellipse_arc_rotated(
@@ -1358,7 +1395,9 @@ impl DrawContext2D {
         precision: f32,
         rotation: f32,
     ) {
-        self.ellipse_arc_origin_rotated(x, y, radius_x, radius_y, range, start, precision, rotation, x, y);
+        self.ellipse_arc_origin_rotated(
+            x, y, radius_x, radius_y, range, start, precision, rotation, x, y,
+        );
     }
 
     pub fn ellipse_arc_origin_rotated(
@@ -1433,7 +1472,9 @@ impl DrawContext2D {
         start: i32,
         precision: f32,
     ) {
-        self.void_ellipse_arc_origin_rotated(x, y, radius_x, radius_y, thickness, range, start, precision, 0.0, 0, 0);
+        self.void_ellipse_arc_origin_rotated(
+            x, y, radius_x, radius_y, thickness, range, start, precision, 0.0, 0, 0,
+        );
     }
 
     pub fn void_ellipse_arc_rotated(

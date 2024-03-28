@@ -36,7 +36,7 @@ impl TimingManager {
         self.tasks.remove(&id);
     }
 
-    pub fn do_frame(&mut self, dt: f32, frame: u64) {
+    pub fn post_frame(&mut self, dt: f32, frame: u64) {
         let mut to_remove = vec![];
         for task in self.tasks.iter_mut() {
             task.1.iteration(dt, frame);
@@ -56,16 +56,16 @@ pub trait TimingTask {
 }
 
 pub struct IterationTask {
-    function: Box<dyn Fn(&EffectState, u32)>,
-    state: EffectState,
+    function: Box<dyn Fn(&AnimationState, u32)>,
+    state: AnimationState,
     current_iter: u32,
     limit: u32,
 }
 
 impl IterationTask {
-    pub fn new<F>(limit: u32, function: F, state: EffectState) -> Self
+    pub fn new<F>(limit: u32, function: F, state: AnimationState) -> Self
     where
-        F: Fn(&EffectState, u32) + 'static,
+        F: Fn(&AnimationState, u32) + 'static,
     {
         Self {
             current_iter: 0,
@@ -88,16 +88,16 @@ impl TimingTask for IterationTask {
 }
 
 pub struct DurationTask {
-    function: Box<dyn Fn(&EffectState, u32)>,
-    state: EffectState,
+    function: Box<dyn Fn(&AnimationState, u32)>,
+    state: AnimationState,
     init_time: u128,
     duration: u32,
 }
 
 impl DurationTask {
-    pub fn new<F>(duration_ms: u32, function: F, state: EffectState) -> Self
+    pub fn new<F>(duration_ms: u32, function: F, state: AnimationState) -> Self
     where
-        F: Fn(&EffectState, u32) + 'static,
+        F: Fn(&AnimationState, u32) + 'static,
     {
         Self {
             function: Box::new(function),
@@ -119,8 +119,8 @@ impl TimingTask for DurationTask {
 }
 
 pub struct DelayTask {
-    function: Box<dyn Fn(&EffectState, u32, u32)>,
-    state: EffectState,
+    function: Box<dyn Fn(&AnimationState, u32, u32)>,
+    state: AnimationState,
     init_time: u128,
     duration: u32,
     delay: u32,
@@ -128,9 +128,9 @@ pub struct DelayTask {
 }
 
 impl DelayTask {
-    pub fn new<F>(duration_ms: u32, delay_ms: u32, function: F, state: EffectState) -> Self
+    pub fn new<F>(duration_ms: u32, delay_ms: u32, function: F, state: AnimationState) -> Self
     where
-        F: Fn(&EffectState, u32, u32) + 'static,
+        F: Fn(&AnimationState, u32, u32) + 'static,
     {
         Self {
             function: Box::new(function),
@@ -157,11 +157,11 @@ impl TimingTask for DelayTask {
     }
 }
 
-pub(crate) struct EffectState {
+pub(crate) struct AnimationState {
     pub(crate) background: Option<BackgroundEffectInfo>,
 }
 
-impl EffectState {
+impl AnimationState {
     pub(crate) fn background(bg: BackgroundEffectInfo) -> Self {
         Self {
             background: Some(bg),

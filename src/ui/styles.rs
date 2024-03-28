@@ -4,24 +4,25 @@ use crate::resources::resources::R;
 use crate::ui::background::{Background, BackgroundInfo, RectangleBackground};
 use crate::ui::elements::UiElement;
 use mvutils::unsafe_utils::Unsafe;
+use mvutils::utils::TetrahedronOp;
 use num_traits::Num;
 use std::convert::Infallible;
 use std::sync::Arc;
-use mvutils::utils::TetrahedronOp;
+use parking_lot::RwLock;
 
 #[macro_export]
 macro_rules! resolve {
     ($elem:ident, $($style:ident).*) => {
         {
-            let s: &UiValue<_> = &$elem.style().$($style).*;
-            let v: Option<_> = s.resolve($elem.resolve_context().dpi, $elem.parent(), |s| {&s.$($style).*});
+            let s = &$elem.style().$($style).*;
+            let v: Option<_> = s.resolve($elem.state().ctx.dpi, &$elem.state().parent, |s| {&s.$($style).*});
             if let Some(v) = v {
                 v
             }
             else {
-                log::error!("UiValue {} failed to resolve on element {}", stringify!($($style).*), $elem.id());
+                log::error!("UiValue {:?} failed to resolve on element {:?}", stringify!($($style).*), $elem.attributes().id);
                 $crate::ui::styles::UiStyle::default().$($style).*
-                .resolve($elem.resolve_context().dpi, None, |s| {&s.$($style).*})
+                .resolve($elem.state().ctx.dpi, &None, |s| {&s.$($style).*})
                 .expect("Default style could not be resolved")
             }
         }
@@ -29,10 +30,10 @@ macro_rules! resolve {
 }
 
 pub struct UiStyle {
-    pub x: UiValue<i32>,
-    pub y: UiValue<i32>,
-    pub width: UiValue<i32>,
-    pub height: UiValue<i32>,
+    pub x: LayoutField<i32>,
+    pub y: LayoutField<i32>,
+    pub width: LayoutField<i32>,
+    pub height: LayoutField<i32>,
     pub padding: SideStyle,
     pub margin: SideStyle,
     pub origin: UiValue<Origin>,
@@ -47,7 +48,7 @@ pub struct UiStyle {
     pub background: BackgroundInfo,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Origin {
     TopLeft,
     #[default]
@@ -77,53 +78,49 @@ impl Origin {
 
     pub fn get_actual_x(&self, x: i32, width: i32) -> i32 {
         match self {
-            Origin::TopLeft => { x }
-            Origin::BottomLeft => { x }
-            Origin::TopRight => { x - width }
-            Origin::BottomRight => { x - width }
-            Origin::Center => { x - width / 2 }
-            Origin::Custom(cx, _) => {
-                x - cx
-            }
+            Origin::TopLeft => x,
+            Origin::BottomLeft => x,
+            Origin::TopRight => x - width,
+            Origin::BottomRight => x - width,
+            Origin::Center => x - width / 2,
+            Origin::Custom(cx, _) => x - cx,
         }
     }
 
     pub fn get_actual_y(&self, y: i32, height: i32) -> i32 {
         match self {
-            Origin::TopLeft => { y - height }
-            Origin::BottomLeft => { y }
-            Origin::TopRight => { y - height }
-            Origin::BottomRight => { y }
-            Origin::Center => { y - height / 2 }
-            Origin::Custom(_, cy) => {
-                y - cy
-            }
+            Origin::TopLeft => y - height,
+            Origin::BottomLeft => y,
+            Origin::TopRight => y - height,
+            Origin::BottomRight => y,
+            Origin::Center => y - height / 2,
+            Origin::Custom(_, cy) => y - cy,
         }
     }
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Position {
     Absolute,
     #[default]
     Relative,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Direction {
     Vertical,
     #[default]
     Horizontal,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TextFit {
     ExpandParent,
     #[default]
     CropText,
 }
 
-#[derive(Default, Clone, Copy, Eq, PartialEq)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ChildAlign {
     #[default]
     Start,
@@ -156,6 +153,63 @@ impl TextStyle {
     }
 }
 
+pub struct LayoutField<T: Ord + Clone + 'static> {
+    pub value: UiValue<T>,
+    pub min: UiValue<T>,
+    pub max: UiValue<T>
+}
+
+impl<T: Ord + Clone + 'static> Resolve<T> for LayoutField<T> {
+    fn resolve<F>(&self, dpi: f32, parent: &Option<Box<dyn UiElement>>, map: F) -> Option<T> where F: Fn(&UiStyle) -> &Self {
+        let value = self.value.resolve(dpi, parent, |s| &map(s).value);
+        let min = self.min.resolve(dpi, parent, |s| &map(s).min);
+        let max = self.max.resolve(dpi, parent, |s| &map(s).max);
+
+        if value.is_none() { return None; }
+
+        let mut emin = None;
+        let mut emax = None;
+
+        if min.is_none() {
+            emin = Some(value.unwrap());
+        } else {
+            emin = min;
+        }
+
+        if max.is_none() {
+            emax = Some(value.unwrap());
+        } else {
+            emax = max;
+        }
+
+        Some(value.unwrap().clamp(emin.unwrap(), emax.unwrap()))
+    }
+}
+
+impl<T: Ord + Copy> From<UiValue<T>> for LayoutField<T> {
+    fn from(value: UiValue<T>) -> Self {
+        LayoutField {
+            value,
+            min: UiValue::None,
+            max: UiValue::None,
+        }
+    }
+}
+
+impl<T: Ord + Clone> LayoutField<T> {
+    pub fn is_set(&self) -> bool {
+        return self.value.is_set()
+    }
+
+    pub fn is_none(&self) -> bool {
+        return matches!(self.value, UiValue::None)
+    }
+
+    pub fn is_auto(&self) -> bool {
+        return matches!(self.value, UiValue::Auto)
+    }
+}
+
 #[derive(Clone)]
 pub struct Dimension<T: Num + Clone> {
     pub width: T,
@@ -181,38 +235,60 @@ impl<T: Num + Clone> Point<T> {
 }
 
 pub struct SideStyle {
-    pub top: UiValue<i32>,
-    pub bottom: UiValue<i32>,
-    pub left: UiValue<i32>,
-    pub right: UiValue<i32>,
+    pub top: LayoutField<i32>,
+    pub bottom: LayoutField<i32>,
+    pub left: LayoutField<i32>,
+    pub right: LayoutField<i32>,
 }
 
 impl SideStyle {
     pub const fn all_i32(v: i32) -> Self {
         Self {
-            top: UiValue::Just(v),
-            bottom: UiValue::Just(v),
-            left: UiValue::Just(v),
-            right: UiValue::Just(v),
+            top: UiValue::Just(v).into(),
+            bottom: UiValue::Just(v).into(),
+            left: UiValue::Just(v).into(),
+            right: UiValue::Just(v).into(),
         }
     }
 
     pub fn all(v: UiValue<i32>) -> Self {
         Self {
-            top: v.clone(),
-            bottom: v.clone(),
-            left: v.clone(),
-            right: v,
+            top: v.clone().into(),
+            bottom: v.clone().into(),
+            left: v.clone().into(),
+            right: v.into(),
         }
     }
 
-    pub fn get(&self, elem: &impl UiElement) -> [i32; 4] {
-        let top = if self.top.is_set() { resolve!(elem, padding.top) } else { matches!(self.top, UiValue::Auto).yn(5, 0) };
-        let bottom = if self.bottom.is_set() { resolve!(elem, padding.bottom) } else { matches!(self.bottom, UiValue::Auto).yn(5, 0) };
-        let left = if self.left.is_set() { resolve!(elem, padding.left) } else { matches!(self.left, UiValue::Auto).yn(5, 0) };
-        let right = if self.right.is_set() { resolve!(elem, padding.right) } else { matches!(self.right, UiValue::Auto).yn(5, 0) };
+    pub fn get(&self, elem: &dyn UiElement) -> [i32; 4] {
+        let top = if self.top.is_set() {
+            resolve!(elem, padding.top)
+        } else {
+            self.top.is_auto().yn(5, 0)
+        };
+        let bottom = if self.bottom.is_set() {
+            resolve!(elem, padding.bottom)
+        } else {
+            self.bottom.is_auto().yn(5, 0)
+        };
+        let left = if self.left.is_set() {
+            resolve!(elem, padding.left)
+        } else {
+            self.left.is_auto().yn(5, 0)
+        };
+        let right = if self.right.is_set() {
+            resolve!(elem, padding.right)
+        } else {
+            self.left.is_auto().yn(5, 0)
+        };
         [top, bottom, left, right]
     }
+}
+
+pub trait Resolve<T> {
+    fn resolve<F>(&self, dpi: f32, parent: &Option<Box<dyn UiElement>>, map: F) -> Option<T>
+        where
+            F: Fn(&UiStyle) -> &Self;
 }
 
 #[derive(Clone, Default)]
@@ -226,26 +302,25 @@ pub enum UiValue<T: Clone + 'static> {
     Measurement(Unit),
 }
 
-impl<T: Clone + 'static> UiValue<T> {
-    pub fn resolve<F>(&self, dpi: f32, parent: Option<Arc<dyn UiElement>>, map: F) -> Option<T>
+impl<T: Clone + 'static> Resolve<T> for UiValue<T> {
+    fn resolve<F>(&self, dpi: f32, parent: &Option<Box<dyn UiElement>>, map: F) -> Option<T>
     where
-        F: Fn(&UiStyle) -> &UiValue<T>,
+        F: Fn(&UiStyle) -> &Self,
     {
         match self {
             UiValue::None => None,
             UiValue::Auto => None,
             UiValue::Inherit => map(parent.clone().unwrap_or_else(no_parent).style()).resolve(
                 dpi,
-                Some(
+                &Some(
                     parent
-                        .clone()
                         .unwrap_or_else(no_parent)
-                        .parent()
+                        .state().parent
                         .unwrap_or_else(no_parent),
                 ),
                 map,
             ),
-            UiValue::Clone(e) => map(e.style()).resolve(dpi, e.parent(), map),
+            UiValue::Clone(e) => map(e.style()).resolve(dpi, &e.state().parent, map),
             UiValue::Just(v) => Some(v.clone()),
             UiValue::Measurement(u) => {
                 if std::any::TypeId::of::<T>() == std::any::TypeId::of::<i32>() {
@@ -259,7 +334,9 @@ impl<T: Clone + 'static> UiValue<T> {
             }
         }
     }
+}
 
+impl<T: Clone + 'static> UiValue<T> {
     pub fn is_set(&self) -> bool {
         !matches!(self, UiValue::None | UiValue::Auto)
     }
@@ -278,10 +355,10 @@ fn no_parent<T>() -> T {
 impl Default for UiStyle {
     fn default() -> Self {
         Self {
-            x: UiValue::Just(0),
-            y: UiValue::Just(0),
-            width: UiValue::Auto,
-            height: UiValue::Auto,
+            x: UiValue::Just(0).into(),
+            y: UiValue::Just(0).into(),
+            width: UiValue::Auto.into(),
+            height: UiValue::Auto.into(),
             padding: SideStyle::all_i32(0),
             margin: SideStyle::all_i32(0),
             origin: UiValue::Just(Origin::BottomLeft),

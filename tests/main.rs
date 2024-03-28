@@ -1,7 +1,7 @@
 use mvutils::once::CreateOnce;
+use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::Recover;
 use std::sync::{Arc, RwLock};
-use mvutils::unsafe_utils::DangerousCell;
 
 use mvutils::version::Version;
 
@@ -9,18 +9,18 @@ use mvcore::render::color::RgbColor;
 use mvcore::render::common::TextureRegion;
 use mvcore::render::window::{Cursor, Window, WindowSpecs};
 use mvcore::render::ApplicationLoopCallbacks;
+use mvcore::ui::attributes::Attributes;
+use mvcore::ui::background::{Background, RoundedBackground};
 use mvcore::ui::ease;
 use mvcore::ui::ease::Easing;
+use mvcore::ui::elements::child::Child;
+use mvcore::ui::elements::lmao::LmaoElement;
+use mvcore::ui::elements::{UiElement, UiElementCallbacks, UiElementState};
 use mvcore::ui::styles::{Dimension, Position, TextFit, UiStyle, UiValue};
+use mvcore::ui::timing::TIMING_MANAGER;
 #[cfg(feature = "ui")]
 use mvcore::ui::timing::{DurationTask, TimingManager};
 use mvcore::{input, ApplicationInfo, MVCore};
-use mvcore::ui::attributes::Attributes;
-use mvcore::ui::background::{Background, RoundedBackground};
-use mvcore::ui::elements::child::Child;
-use mvcore::ui::elements::lmao::LmaoElement;
-use mvcore::ui::elements::{UiElement, UiElementCallbacks};
-use mvcore::ui::timing::TIMING_MANAGER;
 
 fn main() {
     let core = MVCore::new(ApplicationInfo {
@@ -41,14 +41,14 @@ fn main() {
         specs,
         ApplicationLoop {
             tex: CreateOnce::new(),
-            m: DangerousCell::new(false)
+            m: DangerousCell::new(false),
         },
     );
 }
 
 struct ApplicationLoop {
     tex: CreateOnce<Arc<TextureRegion>>,
-    m: DangerousCell<bool>
+    m: DangerousCell<bool>,
 }
 
 impl ApplicationLoopCallbacks for ApplicationLoop {
@@ -71,12 +71,13 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         elem.add_child(Child::String("Hello".to_string()));
 
         let style = elem.style_mut();
-        style.x = UiValue::Just(100);
-        style.y = UiValue::Just(100);
+        style.x.value = UiValue::Just(100);
+        style.y.value = UiValue::Just(100);
         style.position = UiValue::Just(Position::Absolute);
         style.text.fit = UiValue::Just(TextFit::ExpandParent);
 
         window.draw_2d_pass(|ctx| {
+            UiElementState::compute::<LmaoElement>(&mut Box::new(elem), ctx);
             elem.state_mut().compute(&mut elem);
             elem.draw(ctx);
         });
@@ -95,10 +96,10 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         //} else {
         //    *self.m.get_mut() = false;
         //}
-//
-        //unsafe {
-        //    TIMING_MANAGER.do_frame(1.0, 1);
-        //}
+        //
+        unsafe {
+            TIMING_MANAGER.post_frame(1.0, 1);//TODO: get window dt and frame
+        }
     }
 
     fn effect(&self, window: Arc<Window<Self>>) {

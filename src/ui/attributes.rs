@@ -1,6 +1,6 @@
 pub struct Attributes {
-    classes: Vec<String>,
-    id: Option<String>,
+    pub classes: Vec<String>,
+    pub id: Option<String>,
 }
 
 impl Attributes {

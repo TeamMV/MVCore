@@ -30,6 +30,8 @@ use crate::render::color::RgbColor;
 use crate::render::common::{EffectShader, Shader, ShaderType, Texture, TextureRegion};
 #[cfg(feature = "3d")]
 use crate::render::common3d::Material;
+#[cfg(feature = "3d")]
+use crate::render::common3d::{Mesh, Model};
 use crate::render::consts::{
     BIND_GROUP_2D, BIND_GROUP_3D, BIND_GROUP_EFFECT, BIND_GROUP_EFFECT_CUSTOM,
     BIND_GROUP_GEOMETRY_3D, BIND_GROUP_LIGHTING_3D, BIND_GROUP_MODEL_MATRIX, BIND_GROUP_TEXTURES,
@@ -41,16 +43,14 @@ use crate::render::deferred::DeferredPass;
 use crate::render::draw2d::DrawContext2D;
 use crate::render::init::State;
 #[cfg(feature = "3d")]
+use crate::render::model::ModelFileType;
+#[cfg(feature = "3d")]
 use crate::render::model::ModelLoader;
 use crate::render::render2d::{EBuffer, EffectPass, RenderPass2D};
 #[cfg(feature = "3d")]
 use crate::render::render3d::{ForwardPass, RenderPass3D};
 use crate::render::text::FontLoader;
 use crate::render::{consts, ApplicationLoopCallbacks};
-#[cfg(feature = "3d")]
-use crate::render::common3d::{Mesh, Model};
-#[cfg(feature = "3d")]
-use crate::render::model::ModelFileType;
 
 pub struct WindowSpecs {
     /// The width of the window in pixels.
