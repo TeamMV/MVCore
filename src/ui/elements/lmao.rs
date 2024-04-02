@@ -1,8 +1,10 @@
 use crate::render::color::RgbColor;
 use crate::render::draw2d::DrawContext2D;
 use crate::render::text::FontLoader;
+use crate::resolve;
 use crate::resources::resources::R;
 use crate::ui::attributes::Attributes;
+use crate::ui::styles::Resolve;
 use crate::ui::elements::child::Child;
 use crate::ui::elements::{UiElement, UiElementCallbacks, UiElementState};
 use crate::ui::styles::{Dimension, UiStyle};
@@ -21,29 +23,32 @@ impl UiElementCallbacks for LmaoElement {
 
     fn draw(&mut self, ctx: &mut DrawContext2D) {
         ctx.color(self.col.clone());
-        ctx.rectangle(
-            self.state.content_x,
-            self.state.content_y,
-            self.state.content_width,
-            self.state.content_height,
+        ctx.void_rectangle(
+            self.state.x,
+            self.state.y,
+            self.state.width,
+            self.state.height,
+            3
         );
 
-        let state = self.state();
-        let x = state.content_x;
-        let y = state.content_y;
-        let height = state.content_height;
+        let x = self.state.content_x;
+        let y = self.state.content_y;
+        let height = resolve!(self, text.size) as i32;
+
+        //println!("{x}, {y}, {height}");
 
         for child in self.children_mut() {
             if child.is_element() {
-                let elem = match child {
+                let mut elem = match child {
                     Child::Element(ref mut e) => e,
                     _ => {
                         unreachable!()
                     }
-                };
+                }.write();
                 elem.draw(ctx);
             } else {
                 let s = child.as_string();
+
                 ctx.color(RgbColor::white());
                 ctx.text(
                     false,
@@ -104,7 +109,10 @@ impl UiElement for LmaoElement {
 
     fn get_size(&self, s: &str) -> Dimension<i32> {
         let font = R::fonts().get_core("default");
-        let width = font.get_metrics(s).width(self.state.content_height);
-        Dimension::new(width, self.state.content_height)
+        let height = resolve!(self, text.size);
+        let width = font.get_metrics(s).width(height as i32);
+        let dim = Dimension::new(width, height as i32);
+        //println!("{:?}", dim);
+        dim
     }
 }

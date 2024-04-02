@@ -10,7 +10,7 @@ use crate::ui::styles::{
     ChildAlign, Dimension, Direction, Origin, Point, Position, ResCon, TextFit, UiStyle, UiValue,
 };
 use crate::ui::styles::Resolve;
-use mvutils::unsafe_utils::Unsafe;
+use mvutils::unsafe_utils::{DangerousCell, Unsafe};
 use mvutils::utils::{Recover, RwArc, TetrahedronOp};
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc};
@@ -58,9 +58,9 @@ pub trait UiElement: UiElementCallbacks {
     fn get_size(&self, s: &str) -> Dimension<i32>;
 }
 
-pub(crate) struct UiElementState {
+pub struct UiElementState {
     pub ctx: ResCon,
-    pub parent: Option<Box<dyn UiElement>>,
+    pub parent: Option<Arc<RwLock<dyn UiElement>>>,
 
     pub(crate) children: Vec<Child>,
 
@@ -115,45 +115,27 @@ impl UiElementState {
         }
     }
 
-    pub fn comp(elem: Arc<RwLock<dyn UiElement>>, ctx: &mut DrawContext2D) {
-        let mut guard = elem.write();
-        guard.state_mut().ctx.dpi = ctx.dpi();
-        let (_, style, state) = guard.components_mut();
-
-        let s = "Hello";
-
-        let size = guard.get_size(s);
-
-        let text_fit = if style.text.fit.is_set() {
-            resolve!(guard, text.fit)
-        } else {
-            if matches!(style.text.fit, UiValue::None) {
-                TextFit::ExpandParent
-            } else {
-                TextFit::CropText
-            }
-        };
-    }
-
     pub fn compute(elem: Arc<RwLock<dyn UiElement>>, ctx: &mut DrawContext2D) {
         let mut guard = elem.write();
         guard.state_mut().ctx.dpi = ctx.dpi();
+
+        let binding = unsafe { (&*guard as *const dyn UiElement).as_ref().unwrap() };
         let (_, style, state) = guard.components_mut();
 
         let direction = if style.direction.is_set() {
-            resolve!(guard, direction)
+            resolve!(binding, direction)
         } else {
             Direction::default()
         };
 
         let origin = if style.origin.is_set() {
-            resolve!(guard, origin)
+            resolve!(binding, origin)
         } else {
             Origin::BottomLeft
         };
 
         let child_align = if style.child_align.is_set() {
-            resolve!(guard, child_align)
+            resolve!(binding, child_align)
         } else {
             ChildAlign::Start
         };
@@ -162,82 +144,84 @@ impl UiElementState {
         let height_auto = style.height.is_auto();
 
         let mut width = if style.width.is_set() {
-            resolve!(guard, width)
+            resolve!(binding, width)
         } else {
             0
         };
         let mut height = if style.height.is_set() {
-            resolve!(guard, height)
+            resolve!(binding, height)
         } else {
             0
         };
 
-        if width_auto || height_auto {
-            let mut occupied_width = 0;
-            let mut occupied_height = 0;
+        let mut occupied_width = 0;
+        let mut occupied_height = 0;
 
-            for child in &mut state.children {
-                if let Child::Element(ref mut e) = child {
-                    let stat = e.state_mut();
+        for child in &mut state.children {
+            if let Child::Element(e) = child {
+                let mut guard = e.write();
+                let mut stat = guard.state_mut();
 
-                    if matches!(direction, Direction::Horizontal) {
-                        stat.x = occupied_width;
-                    } else {
-                        stat.y = occupied_height;
-                    }
-
-                    UiElementState::compute(elem.clone(), ctx);
-
-                    if matches!(direction, Direction::Horizontal) {
-                        occupied_width += e.state().bounding_width;
-                        occupied_height = occupied_height.max(e.state().bounding_height);
-                    } else {
-                        occupied_width = occupied_width.max(e.state().bounding_width);
-                        occupied_height += e.state().bounding_height;
-                    }
+                if matches!(direction, Direction::Horizontal) {
+                    stat.content_x = occupied_width;
                 } else {
-                    let s = child.as_string();
+                    stat.content_y = occupied_height;
+                }
 
-                    let text_fit = if style.text.fit.is_set() {
-                        resolve!(guard, text.fit)
+                drop(guard);
+
+                UiElementState::compute(e.clone(), ctx);
+
+                let mut guard = e.write();
+                let mut stat = guard.state_mut();
+
+                if matches!(direction, Direction::Horizontal) {
+                    occupied_width += stat.bounding_width;
+                    occupied_height = occupied_height.max(stat.bounding_height);
+                } else {
+                    occupied_width = occupied_width.max(stat.bounding_width);
+                    occupied_height += stat.bounding_height;
+                }
+            } else {
+                let s = child.as_string();
+
+                let text_fit = if style.text.fit.is_set() {
+                    resolve!(binding, text.fit)
+                } else {
+                    if matches!(style.text.fit, UiValue::None) {
+                        TextFit::ExpandParent
                     } else {
-                        if matches!(style.text.fit, UiValue::None) {
-                            TextFit::ExpandParent
-                        } else {
-                            TextFit::CropText
-                        }
-                    };
+                        TextFit::CropText
+                    }
+                };
 
-                    if matches!(text_fit, TextFit::ExpandParent) {
+                if matches!(text_fit, TextFit::ExpandParent) {
+                    let size = binding.get_size(&s);
 
-                        //-----------------------------
-                        //HERE IS THE CALL TO get_size()
-                        //-----------------------------
-
-                        let size = guard.get_size(&s);
-
-                        if matches!(direction, Direction::Horizontal) {
-                            occupied_width += size.width;
-                            occupied_height = occupied_height.max(size.height);
-                        } else {
-                            occupied_width = occupied_width.max(size.width);
-                            occupied_height += size.height;
-                        }
+                    if matches!(direction, Direction::Horizontal) {
+                        occupied_width += size.width;
+                        occupied_height = occupied_height.max(size.height);
+                    } else {
+                        occupied_width = occupied_width.max(size.width);
+                        occupied_height += size.height;
                     }
                 }
             }
-
-            if width_auto && occupied_width > width {
-                width = occupied_width;
-            }
-
-            if height_auto && occupied_height > height {
-                height = occupied_height;
-            }
         }
 
-        let padding = style.padding.get(guard.deref()); //t,b,l,r
-        let margin = style.margin.get(guard.deref());
+        width = style.width.apply(width, binding, |s| &s.width);
+        height = style.height.apply(height, binding, |s| &s.height);
+
+        if width_auto && occupied_width > width {
+            width = occupied_width;
+        }
+
+        if height_auto && occupied_height > height {
+            height = occupied_height;
+        };
+
+        let padding = style.padding.get(binding); //t,b,l,r
+        let margin = style.margin.get(binding);
 
         state.content_width = width;
         state.content_height = height;
@@ -247,14 +231,14 @@ impl UiElementState {
         state.bounding_height = state.height + margin[0] + margin[1];
 
         let position = if style.position.is_set() {
-            resolve!(guard, position)
+            resolve!(binding, position)
         } else {
             Position::Relative
         };
         if matches!(position, Position::Absolute) {
             if !style.x.is_auto() {
                 let x = if style.x.is_set() {
-                    resolve!(guard, x)
+                    resolve!(binding, x)
                 } else {
                     0
                 };
@@ -262,7 +246,7 @@ impl UiElementState {
             }
             if !style.y.is_auto() {
                 let y = if style.y.is_set() {
-                    resolve!(guard, y)
+                    resolve!(binding, y)
                 } else {
                     0
                 };
@@ -270,44 +254,41 @@ impl UiElementState {
             }
         }
 
-        state.x = state.content_x - padding[2];
-        state.y = state.content_y - padding[1];
-        state.bounding_x = state.x - margin[2];
-        state.bounding_y = state.y - margin[1];
-
         for e in state
             .children
-            .deref_mut()
-            .iter_mut()
+            .iter()
             .filter(|c| c.is_element())
             .map(|c| match c {
-                Child::Element(ref mut e) => e,
+                Child::Element(e) => e.clone(),
                 _ => {
                     unreachable!()
                 }
             })
         {
+
+            let mut e_guard = e.write();
+            let e_binding = unsafe { (&*e_guard as *const dyn UiElement).as_ref().unwrap() };
+            let (_, e_style, stat) = e_guard.components_mut();
             //set xy of child to rel coords if pos=rel
 
-            let child_position = if e.style().position.is_set() {
-                resolve!(e, position)
+            let child_position = if e_style.position.is_set() {
+                resolve!(e_binding, position)
             } else {
                 Position::Relative
             };
             if matches!(child_position, Position::Relative) {
-                let stat = e.state_mut();
                 let x_off = stat.x;
                 let y_off = stat.y;
 
-                let child_origin = if e.style().origin.is_set() {
-                    resolve!(e, origin)
+                let child_origin = if e_style.origin.is_set() {
+                    resolve!(e_binding, origin)
                 } else {
                     Origin::BottomLeft
                 };
 
                 match direction {
                     Direction::Vertical => {
-                        stat.content_y = child_origin.get_actual_y(y_off, stat.content_height);
+                        stat.content_y = child_origin.get_actual_y(y_off, stat.content_height) + state.content_y;
                         stat.content_x = child_origin.get_actual_x(
                             match child_align {
                                 ChildAlign::Start => state.content_x,
@@ -330,7 +311,7 @@ impl UiElementState {
                         );
                     }
                     Direction::Horizontal => {
-                        stat.content_x = child_origin.get_actual_x(x_off, stat.content_width);
+                        stat.content_x = child_origin.get_actual_x(x_off, stat.content_width) + state.content_x;
                         stat.content_y = child_origin.get_actual_y(
                             match child_align {
                                 ChildAlign::Start => state.content_y,
@@ -356,14 +337,21 @@ impl UiElementState {
                     }
                 }
 
-                let padding = e.style().padding.get(guard.deref()); //t,b,l,r
-                let margin = e.style().margin.get(guard.deref());
+                let e_padding = e_style.padding.get(binding); //t,b,l,r
+                let e_margin = e_style.margin.get(binding);
 
-                stat.x = stat.content_x - padding[2];
-                stat.y = stat.content_y - padding[1];
-                stat.bounding_x = stat.x - margin[2];
-                stat.bounding_y = stat.y - margin[1];
+                println!("{:?}, {:?}", e_padding, e_margin);
+
+                stat.x = stat.content_x - e_padding[2];
+                stat.y = stat.content_y - e_padding[1];
+                stat.bounding_x = stat.x - e_margin[2];
+                stat.bounding_y = stat.y - e_margin[1];
             }
         }
+
+        state.x = state.content_x - padding[2];
+        state.y = state.content_y - padding[1];
+        state.bounding_x = state.x - margin[2];
+        state.bounding_y = state.y - margin[1];
     }
 }

@@ -4,9 +4,10 @@ use crate::resources::resources::R;
 use crate::ui::background::{Background, BackgroundInfo, RectangleBackground};
 use crate::ui::elements::UiElement;
 use mvutils::unsafe_utils::Unsafe;
-use mvutils::utils::TetrahedronOp;
+use mvutils::utils::{PClamp, TetrahedronOp};
 use num_traits::Num;
 use std::convert::Infallible;
+use std::fmt::Debug;
 use std::sync::Arc;
 use parking_lot::RwLock;
 
@@ -15,20 +16,21 @@ macro_rules! resolve {
     ($elem:ident, $($style:ident).*) => {
         {
             let s = &$elem.style().$($style).*;
-            let v: Option<_> = s.resolve($elem.state().ctx.dpi, &$elem.state().parent, |s| {&s.$($style).*});
+            let v: Option<_> = s.resolve($elem.state().ctx.dpi, $elem.state().parent.clone(), |s| {&s.$($style).*});
             if let Some(v) = v {
                 v
             }
             else {
                 log::error!("UiValue {:?} failed to resolve on element {:?}", stringify!($($style).*), $elem.attributes().id);
                 $crate::ui::styles::UiStyle::default().$($style).*
-                .resolve($elem.state().ctx.dpi, &None, |s| {&s.$($style).*})
+                .resolve($elem.state().ctx.dpi, None, |s| {&s.$($style).*})
                 .expect("Default style could not be resolved")
             }
         }
     };
 }
 
+#[derive(Clone)]
 pub struct UiStyle {
     pub x: LayoutField<i32>,
     pub y: LayoutField<i32>,
@@ -131,21 +133,22 @@ pub enum ChildAlign {
     OffsetMiddle(i32),
 }
 
+#[derive(Clone)]
 pub struct TextStyle {
-    pub size: UiValue<f32>,
-    pub kerning: UiValue<f32>,
-    pub skew: UiValue<f32>,
+    pub size: LayoutField<f32>,
+    pub kerning: LayoutField<f32>,
+    pub skew: LayoutField<f32>,
     pub stretch: UiValue<Dimension<f32>>,
     pub font: UiValue<Arc<Font>>,
     pub fit: UiValue<TextFit>,
 }
 
 impl TextStyle {
-    pub const fn initial() -> Self {
+    pub fn initial() -> Self {
         Self {
-            size: UiValue::Measurement(Unit::BarleyCorn(1.0)),
-            kerning: UiValue::None,
-            skew: UiValue::None,
+            size: UiValue::Measurement(Unit::BarleyCorn(1.0)).into(),
+            kerning: UiValue::None.into(),
+            skew: UiValue::None.into(),
             stretch: UiValue::None,
             font: UiValue::Auto,
             fit: UiValue::Auto,
@@ -153,16 +156,17 @@ impl TextStyle {
     }
 }
 
-pub struct LayoutField<T: Ord + Clone + 'static> {
+#[derive(Clone)]
+pub struct LayoutField<T: PartialOrd + Clone + 'static> {
     pub value: UiValue<T>,
     pub min: UiValue<T>,
     pub max: UiValue<T>
 }
 
-impl<T: Ord + Clone + 'static> Resolve<T> for LayoutField<T> {
-    fn resolve<F>(&self, dpi: f32, parent: &Option<Box<dyn UiElement>>, map: F) -> Option<T> where F: Fn(&UiStyle) -> &Self {
-        let value = self.value.resolve(dpi, parent, |s| &map(s).value);
-        let min = self.min.resolve(dpi, parent, |s| &map(s).min);
+impl<T: PartialOrd + Clone + 'static> Resolve<T> for LayoutField<T> {
+    fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<dyn UiElement>>>, map: F) -> Option<T> where F: Fn(&UiStyle) -> &Self {
+        let value = self.value.resolve(dpi, parent.clone(), |s| &map(s).value);
+        let min = self.min.resolve(dpi, parent.clone(), |s| &map(s).min);
         let max = self.max.resolve(dpi, parent, |s| &map(s).max);
 
         if value.is_none() { return None; }
@@ -171,22 +175,22 @@ impl<T: Ord + Clone + 'static> Resolve<T> for LayoutField<T> {
         let mut emax = None;
 
         if min.is_none() {
-            emin = Some(value.unwrap());
+            emin = Some(value.clone().unwrap());
         } else {
             emin = min;
         }
 
         if max.is_none() {
-            emax = Some(value.unwrap());
+            emax = Some(value.clone().unwrap());
         } else {
             emax = max;
         }
 
-        Some(value.unwrap().clamp(emin.unwrap(), emax.unwrap()))
+        Some(value.unwrap().p_clamp(emin.unwrap(), emax.unwrap()))
     }
 }
 
-impl<T: Ord + Copy> From<UiValue<T>> for LayoutField<T> {
+impl<T: PartialOrd + Copy> From<UiValue<T>> for LayoutField<T> {
     fn from(value: UiValue<T>) -> Self {
         LayoutField {
             value,
@@ -196,7 +200,7 @@ impl<T: Ord + Copy> From<UiValue<T>> for LayoutField<T> {
     }
 }
 
-impl<T: Ord + Clone> LayoutField<T> {
+impl<T: PartialOrd + Clone> LayoutField<T> {
     pub fn is_set(&self) -> bool {
         return self.value.is_set()
     }
@@ -208,15 +212,38 @@ impl<T: Ord + Clone> LayoutField<T> {
     pub fn is_auto(&self) -> bool {
         return matches!(self.value, UiValue::Auto)
     }
+
+    pub fn apply<F>(&self, value: T, elem: &dyn UiElement, map: F) -> T where F: Fn(&UiStyle) -> &Self {
+        let min = self.min.resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| &map(s).min);
+        let max = self.min.resolve(elem.state().ctx.dpi, elem.state().parent.clone(), |s| &map(s).max);
+
+        let mut ret = value;
+
+        if min.is_some() {
+            let min = min.unwrap();
+            if ret < min {
+                ret = min;
+            }
+        }
+
+        if max.is_some() {
+            let max = max.unwrap();
+            if ret < max {
+                ret = max;
+            }
+        }
+
+        ret
+    }
 }
 
-#[derive(Clone)]
-pub struct Dimension<T: Num + Clone> {
+#[derive(Clone, Debug)]
+pub struct Dimension<T: Num + Clone + Debug> {
     pub width: T,
     pub height: T,
 }
 
-impl<T: Num + Clone> Dimension<T> {
+impl<T: Num + Clone + Debug> Dimension<T> {
     pub fn new(width: T, height: T) -> Self {
         Self { width, height }
     }
@@ -234,6 +261,7 @@ impl<T: Num + Clone> Point<T> {
     }
 }
 
+#[derive(Clone)]
 pub struct SideStyle {
     pub top: LayoutField<i32>,
     pub bottom: LayoutField<i32>,
@@ -242,7 +270,7 @@ pub struct SideStyle {
 }
 
 impl SideStyle {
-    pub const fn all_i32(v: i32) -> Self {
+    pub fn all_i32(v: i32) -> Self {
         Self {
             top: UiValue::Just(v).into(),
             bottom: UiValue::Just(v).into(),
@@ -258,6 +286,13 @@ impl SideStyle {
             left: v.clone().into(),
             right: v.into(),
         }
+    }
+
+    pub fn set(&mut self, v: UiValue<i32>) {
+        self.top = v.clone().into();
+        self.bottom = v.clone().into();
+        self.left = v.clone().into();
+        self.right = v.into();
     }
 
     pub fn get(&self, elem: &dyn UiElement) -> [i32; 4] {
@@ -286,7 +321,7 @@ impl SideStyle {
 }
 
 pub trait Resolve<T> {
-    fn resolve<F>(&self, dpi: f32, parent: &Option<Box<dyn UiElement>>, map: F) -> Option<T>
+    fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<dyn UiElement>>>, map: F) -> Option<T>
         where
             F: Fn(&UiStyle) -> &Self;
 }
@@ -303,24 +338,30 @@ pub enum UiValue<T: Clone + 'static> {
 }
 
 impl<T: Clone + 'static> Resolve<T> for UiValue<T> {
-    fn resolve<F>(&self, dpi: f32, parent: &Option<Box<dyn UiElement>>, map: F) -> Option<T>
+    fn resolve<F>(&self, dpi: f32, parent: Option<Arc<RwLock<dyn UiElement>>>, map: F) -> Option<T>
     where
         F: Fn(&UiStyle) -> &Self,
     {
         match self {
             UiValue::None => None,
             UiValue::Auto => None,
-            UiValue::Inherit => map(parent.clone().unwrap_or_else(no_parent).style()).resolve(
-                dpi,
-                &Some(
-                    parent
-                        .unwrap_or_else(no_parent)
-                        .state().parent
-                        .unwrap_or_else(no_parent),
-                ),
-                map,
-            ),
-            UiValue::Clone(e) => map(e.style()).resolve(dpi, &e.state().parent, map),
+            UiValue::Inherit => {
+                let lock = parent.clone().unwrap_or_else(no_parent);
+                let guard = lock.read();
+                map(guard.style()).resolve(
+                    dpi,
+                    Some(
+                        parent
+                            .unwrap_or_else(no_parent)
+                            .read()
+                            .state().parent.clone()
+                            .unwrap_or_else(no_parent)
+                            .clone(),
+                    ),
+                    map,
+                )
+            },
+            UiValue::Clone(e) => map(e.style()).resolve(dpi, e.state().parent.clone(), map),
             UiValue::Just(v) => Some(v.clone()),
             UiValue::Measurement(u) => {
                 if std::any::TypeId::of::<T>() == std::any::TypeId::of::<i32>() {

@@ -1,9 +1,10 @@
 use mvutils::once::CreateOnce;
 use mvutils::unsafe_utils::DangerousCell;
 use mvutils::utils::Recover;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc};
 
 use mvutils::version::Version;
+use parking_lot::RwLock;
 
 use mvcore::render::color::RgbColor;
 use mvcore::render::common::TextureRegion;
@@ -16,7 +17,7 @@ use mvcore::ui::ease::Easing;
 use mvcore::ui::elements::child::Child;
 use mvcore::ui::elements::lmao::LmaoElement;
 use mvcore::ui::elements::{UiElement, UiElementCallbacks, UiElementState};
-use mvcore::ui::styles::{Dimension, Position, TextFit, UiStyle, UiValue};
+use mvcore::ui::styles::{ChildAlign, Dimension, Direction, Position, TextFit, UiStyle, UiValue};
 use mvcore::ui::timing::TIMING_MANAGER;
 #[cfg(feature = "ui")]
 use mvcore::ui::timing::{DurationTask, TimingManager};
@@ -25,7 +26,7 @@ use mvcore::{input, ApplicationInfo, MVCore};
 fn main() {
     let core = MVCore::new(ApplicationInfo {
         name: "Test".to_string(),
-        version: Version::new(1, 0, 0),
+        version: Version::new(1, 0, 0, 0),
         multithreaded: true,
         extra_threads: 1,
     });
@@ -67,19 +68,42 @@ impl ApplicationLoopCallbacks for ApplicationLoop {
         let binding = window.input();
         let input = binding.read().recover();
 
-        let mut elem = LmaoElement::new(Attributes::new(), UiStyle::default());
-        elem.add_child(Child::String("Hello".to_string()));
-
-        let style = elem.style_mut();
+        let mut style = UiStyle::default();
         style.x.value = UiValue::Just(100);
-        style.y.value = UiValue::Just(100);
-        style.position = UiValue::Just(Position::Absolute);
+        style.y.value = UiValue::Just(500);
+        style.position = UiValue::Just(Position::Relative);
+        style.direction = UiValue::Just(Direction::Vertical);
         style.text.fit = UiValue::Just(TextFit::ExpandParent);
+        style.text.size.value = UiValue::Just(100.0);
+        style.height.min = UiValue::Just(100);
+
+        let mut elem = LmaoElement::new(Attributes::new(), style.clone());
+
+        let mut elem1 = LmaoElement::new(Attributes::new(), style.clone());
+        let mut elem2 = LmaoElement::new(Attributes::new(), style.clone());
+        let mut elem3 = LmaoElement::new(Attributes::new(), style);
+
+        elem.add_child(Child::String("Hello1".to_string()));
+        elem2.add_child(Child::String("Hello2".to_string()));
+        elem3.add_child(Child::String("Hello3".to_string()));
+
+        //elem.add_child(Child::Element(Arc::new(RwLock::new(elem1))));
+        //elem.add_child(Child::Element(Arc::new(RwLock::new(elem2))));
+        //elem.add_child(Child::Element(Arc::new(RwLock::new(elem3))));
+
+        let mut style = elem.style_mut();
+        style.position = UiValue::Just(Position::Absolute);
+        style.child_align = UiValue::Just(ChildAlign::Middle);
+        //style.width.min = UiValue::Just(500);
+        //style.padding.set(UiValue::Just(50));
+
+        let elem = Arc::new(RwLock::new(elem));
 
         window.draw_2d_pass(|ctx| {
-            UiElementState::compute::<LmaoElement>(&mut Box::new(elem), ctx);
-            elem.state_mut().compute(&mut elem);
-            elem.draw(ctx);
+            UiElementState::compute(elem.clone(), ctx);
+
+            let mut guard = elem.write();
+            guard.draw(ctx);
         });
 
         //let mx = input.positions[0];
